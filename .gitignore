@@ -1,7 +1,7 @@
 terraform.tfstate
 terraform.tfstate.backup
 .terraform/
-.terraform.lock.hcl
+backend.hcl
 *.tfvars.local
 override.tf
 override.tf.json

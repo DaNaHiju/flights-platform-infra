@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.10"
 
   required_providers {
     aws = {
@@ -12,18 +12,15 @@ terraform {
     }
   }
 
-  # Remote state backend. Backend blocks cannot reference variables or locals,
-  # so these values must be filled in by hand using the outputs from
-  # terraform/bootstrap (see that folder's README-style instructions):
-  #   bucket         -> bootstrap output "state_bucket_name"
-  #   dynamodb_table -> bootstrap output "lock_table_name"
-  #   region         -> the aws_region used for bootstrap (e.g. "us-east-1")
+  # Remote state backend (S3 with native lockfile; no DynamoDB table).
+  # Backend blocks cannot reference variables, so bucket and region are supplied
+  # at init time from backend.hcl (git-ignored; `make bootstrap-up` generates it
+  # from the bootstrap outputs, or copy backend.hcl.example):
+  #   terraform init -backend-config=backend.hcl
   backend "s3" {
-    bucket         = "REPLACE_WITH_state_bucket_name"
-    key            = "eks-platform/terraform.tfstate"
-    region         = "REPLACE_WITH_aws_region"
-    dynamodb_table = "REPLACE_WITH_lock_table_name"
-    encrypt        = true
+    key          = "eks-platform/terraform.tfstate"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 
@@ -32,7 +29,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = var.app_name
+      Project     = var.project
       Environment = var.environment
       ManagedBy   = "terraform"
     }

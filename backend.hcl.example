@@ -1,0 +1,4 @@
+# Copy to backend.hcl (git-ignored) with the bootstrap outputs, or let
+# `make bootstrap-up` generate it.
+bucket = "flights-platform-tfstate-<ACCOUNT_ID>"
+region = "us-east-1"

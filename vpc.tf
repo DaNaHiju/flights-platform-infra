@@ -1,7 +1,6 @@
 # ── VPC ──────────────────────────────────────────────────────────────────────
-# NOTE: When running with kind locally, skip this file by using
-#       `terraform apply -target=...` or comment it out.
-#       AWS resources are provisioned in Project 2.
+# NOTE: the NAT gateway below is the main fixed cost besides the EKS control
+#       plane; always tear the stack down with `make down` when done.
 
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr

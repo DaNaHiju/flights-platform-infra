@@ -1,16 +1,28 @@
-# This folder intentionally uses LOCAL state: it creates the S3 bucket and
-# DynamoDB table that the main config's remote backend depends on, so it
-# cannot itself depend on that backend (bootstrap chicken-and-egg problem).
+# This folder intentionally uses LOCAL state: it creates the S3 bucket that the
+# root configuration's remote backend depends on, so it cannot itself depend on
+# that backend (bootstrap chicken-and-egg problem). Keep bootstrap/terraform.tfstate
+# safe (it is git-ignored): without it you cannot manage or destroy the bucket.
+#
+# State locking uses S3 native lockfiles (use_lockfile = true in the root
+# backend), so no DynamoDB table is needed.
+
+data "aws_caller_identity" "current" {}
 
 # ── S3 bucket for Terraform state ────────────────────────────────────────────
-# Cost note: state files are a few KB each; S3 storage + request costs for this
-# stay well within the AWS free tier (or a few cents/month after it expires).
+# The account id suffix keeps the (globally unique) bucket name collision-free.
+# Cost note: state files are a few KB each; S3 storage + request costs stay
+# within the free tier (or a few cents/month after it expires).
 
 resource "aws_s3_bucket" "tfstate" {
-  bucket = "${var.project}-tfstate"
+  bucket = "${var.project}-tfstate-${data.aws_caller_identity.current.account_id}"
+
+  # `make bootstrap-down` must be able to remove a bucket that holds versioned
+  # state objects. Destroying bootstrap deletes ALL Terraform state: the Makefile
+  # asks for explicit confirmation first.
+  force_destroy = true
 
   tags = {
-    Project   = var.project
+    Project   = "${var.project}-bootstrap"
     ManagedBy = "terraform"
     Purpose   = "terraform-remote-state"
   }
@@ -41,25 +53,4 @@ resource "aws_s3_bucket_public_access_block" "tfstate" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
-}
-
-# ── DynamoDB table for state locking ─────────────────────────────────────────
-# Cost note: PAY_PER_REQUEST billing means we only pay per lock/unlock request
-# (a handful per terraform run) — effectively free tier / cents per month.
-
-resource "aws_dynamodb_table" "tflock" {
-  name         = "${var.project}-tflock"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-
-  tags = {
-    Project   = var.project
-    ManagedBy = "terraform"
-    Purpose   = "terraform-state-locking"
-  }
 }

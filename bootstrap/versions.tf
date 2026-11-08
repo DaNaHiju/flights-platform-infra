@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.10"
 
   required_providers {
     aws = {
@@ -14,7 +14,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project   = var.project
+      Project   = "${var.project}-bootstrap"
       ManagedBy = "terraform"
       Purpose   = "terraform-backend-bootstrap"
     }
