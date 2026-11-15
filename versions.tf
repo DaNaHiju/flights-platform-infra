@@ -13,16 +13,13 @@ terraform {
   }
 
   # Remote state backend. Backend blocks cannot reference variables or locals,
-  # so these values must be filled in by hand using the outputs from
-  # terraform/bootstrap (see that folder's README-style instructions):
-  #   bucket         -> bootstrap output "state_bucket_name"
-  #   dynamodb_table -> bootstrap output "lock_table_name"
-  #   region         -> the aws_region used for bootstrap (e.g. "us-east-1")
+  # so these values mirror the outputs of bootstrap/ (see bootstrap/README.md).
+  # Run `terraform apply` in bootstrap/ BEFORE running `terraform init` here.
   backend "s3" {
-    bucket         = "REPLACE_WITH_state_bucket_name"
+    bucket         = "flights-tfstate-565923528020"
     key            = "eks-platform/terraform.tfstate"
-    region         = "REPLACE_WITH_aws_region"
-    dynamodb_table = "REPLACE_WITH_lock_table_name"
+    region         = "eu-north-1"
+    dynamodb_table = "flights-tf-locks"
     encrypt        = true
   }
 }
