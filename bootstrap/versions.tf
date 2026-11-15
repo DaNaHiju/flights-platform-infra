@@ -10,11 +10,11 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
+  region = var.region
 
   default_tags {
     tags = {
-      Project   = var.project
+      Project   = "flights"
       ManagedBy = "terraform"
       Purpose   = "terraform-backend-bootstrap"
     }
