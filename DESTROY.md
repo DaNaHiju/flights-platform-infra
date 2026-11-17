@@ -64,6 +64,14 @@ echo "Controller-made SGs:"; aws ec2 describe-security-groups \
   --query 'SecurityGroups[].GroupId' --output text
 ```
 
+Delete the access key of the CI user by hand: Terraform never saw it, and the user cannot be removed while it has one.
+
+```bash
+for k in $(aws iam list-access-keys --user-name github-ecr-push --query 'AccessKeyMetadata[].AccessKeyId' --output text); do
+  aws iam delete-access-key --user-name github-ecr-push --access-key-id "$k"
+done
+```
+
 ## 4. Terraform destroy
 
 ```bash
@@ -72,7 +80,7 @@ terraform plan -destroy -out=destroy.tfplan
 terraform apply destroy.tfplan
 ```
 
-This also deletes the `github-ecr-push` user together with its access key, all ECR repositories (`force_delete`) and the Secrets Manager secret (`recovery_window_in_days = 0`, so no 30-day wait).
+This also deletes the `github-ecr-push` user (its key was removed in step 3), all ECR repositories (`force_delete`) and the Secrets Manager secret (`recovery_window_in_days = 0`, so no 30-day wait).
 
 ## 5. Verify nothing is left (AFTER destroy)
 

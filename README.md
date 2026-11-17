@@ -107,7 +107,7 @@ aws iam create-access-key --user-name github-ecr-push --output json \
       printf %s "$secret" | gh secret set AWS_SECRET_ACCESS_KEY -R DaNaHiju/flights-platform; }
 ```
 
-Rotate by creating a second key, updating the secrets, then `aws iam delete-access-key` for the old one. `terraform destroy` deletes the user and any keys (`force_destroy`).
+Rotate by creating a second key, updating the secrets, then `aws iam delete-access-key` for the old one. Delete the key by hand before `terraform destroy` (DESTROY.md, step 3): Terraform does not know it, and `force_destroy` cannot be used because the SCP denies `iam:DeleteLoginProfile`.
 
 ## Created by hand (not in Terraform)
 
