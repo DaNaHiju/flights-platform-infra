@@ -1,7 +1,7 @@
 variable "app_name" {
   description = "Application name used across all resources"
   type        = string
-  default     = "flights-api"
+  default     = "flights"
 }
 
 variable "environment" {
@@ -21,44 +21,115 @@ variable "aws_region" {
   default     = "eu-north-1"
 }
 
-variable "docker_image" {
-  description = "Full Docker image reference (registry/name:tag)"
-  type        = string
-  default     = "myrepo/flights-api:latest"
-}
-
-variable "node_instance_type" {
-  description = "EC2 instance type for EKS worker nodes"
-  type        = string
-  default     = "t3.small"
-}
-
-variable "desired_node_count" {
-  description = "Desired number of EKS worker nodes"
-  type        = number
-  default     = 2
-}
-
-variable "min_node_count" {
-  description = "Minimum number of EKS worker nodes"
-  type        = number
-  default     = 1
-}
-
-variable "max_node_count" {
-  description = "Maximum number of EKS worker nodes"
-  type        = number
-  default     = 3
-}
-
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
   default     = "10.0.0.0/16"
 }
 
-variable "alert_email" {
-  description = "Email address for budget and cost alerts"
+variable "single_nat" {
+  description = "true: one NAT gateway shared by both AZs (cheap, lab). false: one NAT per AZ."
+  type        = bool
+  default     = true
+}
+
+# ── EKS ──────────────────────────────────────────────────────────────────────
+
+variable "kubernetes_version" {
+  description = "EKS Kubernetes version (must be in standard support; Istio 1.30 supports 1.32-1.36)"
   type        = string
-  default     = ""
+  default     = "1.35"
+}
+
+variable "public_access_cidrs" {
+  description = "CIDRs allowed to reach the PUBLIC EKS API endpoint. No default on purpose: set it in terraform.tfvars (git-ignored)."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.public_access_cidrs) > 0 && !contains(var.public_access_cidrs, "0.0.0.0/0")
+    error_message = "public_access_cidrs must be non-empty and must not contain 0.0.0.0/0."
+  }
+}
+
+variable "system_node_instance_type" {
+  description = "Instance type for the system node group (platform components)"
+  type        = string
+  default     = "t3.medium"
+
+  validation {
+    condition     = startswith(var.system_node_instance_type, "t3.")
+    error_message = "Only t3.* instance types are allowed (cost guardrail)."
+  }
+}
+
+variable "system_node_min" {
+  description = "Minimum number of system nodes"
+  type        = number
+  default     = 2
+}
+
+variable "system_node_desired" {
+  description = "Initial desired number of system nodes"
+  type        = number
+  default     = 2
+}
+
+variable "system_node_max" {
+  description = "Maximum number of system nodes"
+  type        = number
+  default     = 3
+}
+
+variable "app_node_instance_type" {
+  description = "Instance type for the app node group (workloads, tainted workload=app:NoSchedule)"
+  type        = string
+  default     = "t3.large"
+
+  validation {
+    condition     = startswith(var.app_node_instance_type, "t3.")
+    error_message = "Only t3.* instance types are allowed (cost guardrail)."
+  }
+}
+
+variable "app_node_min" {
+  description = "Minimum number of app nodes"
+  type        = number
+  default     = 2
+}
+
+variable "app_node_desired" {
+  description = "Initial desired number of app nodes (cluster-autoscaler changes it afterwards)"
+  type        = number
+  default     = 2
+}
+
+variable "app_node_max" {
+  description = "Maximum number of app nodes"
+  type        = number
+  default     = 4
+}
+
+# ── Registry, secrets, CI ────────────────────────────────────────────────────
+
+variable "ecr_repositories" {
+  description = "ECR repositories to create (one per service image)"
+  type        = list(string)
+  default     = ["flights-api", "flights-worker", "flights-web"]
+}
+
+variable "db_secret_name" {
+  description = "Secrets Manager secret holding the Postgres credentials (keys DB_USER, DB_PASSWORD). Must stay under flights/eks/ to match the ESO policy."
+  type        = string
+  default     = "flights/eks/db"
+
+  validation {
+    condition     = startswith(var.db_secret_name, "flights/eks/")
+    error_message = "db_secret_name must start with flights/eks/ (the ESO role is limited to that prefix)."
+  }
+}
+
+variable "db_user" {
+  description = "Postgres user stored in the secret. Must equal postgresql.auth.username in the chart values."
+  type        = string
+  default     = "flights"
 }
