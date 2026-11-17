@@ -1,0 +1,6 @@
+# 2026-11-17 21:23:20 UTC  (23:23:20 IST)
+# $ kubectl get pvc -A
+
+NAMESPACE   NAME                                        STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+flights     data-flights-api-eks-postgresql-0           Bound    pvc-25537cb2-d2db-4072-9d40-8a258c6874a9   2Gi        RWO            gp3            <unset>                 48m
+flights     redis-data-flights-api-eks-redis-master-0   Bound    pvc-1025bc94-9c52-4751-aa2d-e30321ae0f64   1Gi        RWO            gp3            <unset>                 48m

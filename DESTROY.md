@@ -21,16 +21,27 @@ kubectl -n argocd patch application platform-root-eks --type merge \
   -p '{"spec":{"syncPolicy":null}}'
 ```
 
+This stops the root from re-creating deleted child Applications. It is not enough on its own: each child Application has its own `selfHeal`, so a resource deleted by hand (the Ingress, a PVC) is re-created. That is why step 2 deletes the **Applications** that own them, not the resources.
+
 ## 2. Delete the load balancer and the volumes from inside Kubernetes
 
+The AWS Load Balancer Controller must still be running while the ALB is deleted, so the order is: Ingress first, controller later (it goes away with the cluster).
+
 ```bash
-# ALB: deleting the Ingress makes the controller delete the ALB, listeners, target groups and its SG.
-kubectl delete ingress --all -A --wait=true
+# ALB: deleting the Application (finalizer) deletes its Ingress, and the controller then
+# deletes the ALB, listeners, target groups and its security groups.
+kubectl -n argocd delete application istio-ingress-alb --wait=true --timeout=10m
+kubectl get ingress -A            # expect: No resources found
 # Any Service of type LoadBalancer (none expected on EKS) would leave an NLB/CLB behind:
 kubectl get svc -A | grep LoadBalancer || echo "no LoadBalancer services"
 
-# EBS: Postgres/Redis PVCs. Deleting them deletes the volumes (reclaimPolicy Delete).
-kubectl delete application -n argocd --all --wait=true --timeout=10m   # workloads first
+# Wait until the ALB is really gone before going on (it is deleted asynchronously):
+until [ -z "$(aws elbv2 describe-load-balancers --query "LoadBalancers[?VpcId=='$VPC_ID'].LoadBalancerArn" --output text)" ]; do sleep 5; done
+
+# EBS: workloads first, then the PVCs they leave behind (StatefulSet PVCs are NOT deleted
+# with the StatefulSet). reclaimPolicy Delete then removes the volumes.
+kubectl -n argocd delete application flights-api-eks flights-web-eks flights-worker-eks mesh-flights \
+  --wait=true --timeout=10m
 kubectl delete pvc --all -A --wait=true --timeout=10m
 ```
 

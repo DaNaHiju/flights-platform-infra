@@ -114,6 +114,10 @@ Rotate by creating a second key, updating the secrets, then `aws iam delete-acce
 - **AWS Budget** "My Monthly Cost Budget" ($30/month): created manually in the console before this repo existed, so Terraform does not manage it. An earlier `aws_budgets_budget` ($10) was removed from the code.
 - **GitHub Secrets** `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` in `flights-platform` (see above).
 
+## Evidence
+
+[`docs/evidence/`](docs/evidence/README.md) holds what the running EKS environment looked like before teardown: nodes, pods, ArgoCD Applications, PVCs, Ingress/ALB, `curl` through the ALB, ArgoCD screenshots, and a documented finding (the flight provider answering `502` from the datacenter IP).
+
 ## Teardown
 
 See [DESTROY.md](DESTROY.md). Read it before the first apply.
