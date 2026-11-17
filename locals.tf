@@ -54,4 +54,19 @@ locals {
   }
 }
 
+# Instance types this Free plan account may launch in eu-north-1. Anything else
+# fails in the ASG with "The specified instance type is not eligible for Free Tier".
+# Source: aws ec2 describe-instance-types --filters Name=free-tier-eligible,Values=true
+# Referenced by variable validation (needs Terraform >= 1.9).
+locals {
+  free_tier_instance_types = [
+    "t3.micro",
+    "t3.small",
+    "t4g.micro",
+    "t4g.small",
+    "c7i-flex.large",
+    "m7i-flex.large",
+  ]
+}
+
 data "aws_caller_identity" "current" {}

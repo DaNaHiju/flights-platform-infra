@@ -54,11 +54,11 @@ variable "public_access_cidrs" {
 variable "system_node_instance_type" {
   description = "Instance type for the system node group (platform components)"
   type        = string
-  default     = "t3.medium"
+  default     = "m7i-flex.large"
 
   validation {
-    condition     = startswith(var.system_node_instance_type, "t3.")
-    error_message = "Only t3.* instance types are allowed (cost guardrail)."
+    condition     = contains(local.free_tier_instance_types, var.system_node_instance_type)
+    error_message = "Instance type must be free-tier eligible in eu-north-1: ${join(", ", local.free_tier_instance_types)}."
   }
 }
 
@@ -83,11 +83,11 @@ variable "system_node_max" {
 variable "app_node_instance_type" {
   description = "Instance type for the app node group (workloads, tainted workload=app:NoSchedule)"
   type        = string
-  default     = "t3.large"
+  default     = "m7i-flex.large"
 
   validation {
-    condition     = startswith(var.app_node_instance_type, "t3.")
-    error_message = "Only t3.* instance types are allowed (cost guardrail)."
+    condition     = contains(local.free_tier_instance_types, var.app_node_instance_type)
+    error_message = "Instance type must be free-tier eligible in eu-north-1: ${join(", ", local.free_tier_instance_types)}."
   }
 }
 
