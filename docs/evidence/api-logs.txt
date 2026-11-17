@@ -1,0 +1,10 @@
+# 2026-11-17 21:23:34 UTC  -- read from the pod, no search was run
+# $ kubectl logs -n flights deploy/flights-api-eks -c flights-api --since=3h | grep -E "GET /flights|fli search failed"
+
+INFO:     127.0.0.6:60797 - "GET /flights?origin=TLV&destination=LHR&date=2027-01-20 HTTP/1.1" 200 OK
+{"name": "flights-api", "message": "fli search failed origin=TLV destination=MAD: fli returned no payload (None)", "taskName": null, "request_id": "f0467f6f-aba5-448c-8bd9-a9ad5b5c7699", "timestamp": "2026-11-17 21:02:37,026", "level": "WARNING"}
+INFO:     127.0.0.6:46841 - "GET /flights?origin=TLV&destination=MAD&date=2026-11-18 HTTP/1.1" 502 Bad Gateway
+{"name": "flights-api", "message": "fli search failed origin=TLV destination=NRT: fli returned no payload (None)", "taskName": null, "request_id": "a5f42858-055d-4106-87fd-325cb80eb33e", "timestamp": "2026-11-17 21:14:51,711", "level": "WARNING"}
+INFO:     127.0.0.6:37597 - "GET /flights?origin=TLV&destination=NRT&date=2026-12-16 HTTP/1.1" 502 Bad Gateway
+{"name": "flights-api", "message": "fli search failed origin=TLV destination=LHR: fli returned no payload (None)", "taskName": null, "request_id": "4e09d6dc-f24c-4b90-b5c3-aa9a7233d345", "timestamp": "2026-11-17 21:17:19,741", "level": "WARNING"}
+INFO:     127.0.0.6:48959 - "GET /flights?origin=TLV&destination=LHR&date=2027-01-20 HTTP/1.1" 502 Bad Gateway

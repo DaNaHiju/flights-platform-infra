@@ -1,0 +1,21 @@
+# 2026-11-17 21:23:19 UTC  (23:23:19 IST)
+# $ kubectl get applications -n argocd
+
+NAME                           SYNC STATUS   HEALTH STATUS
+argocd                         Synced        Healthy
+aws-load-balancer-controller   Synced        Healthy
+cluster-autoscaler             Synced        Healthy
+clustersecretstores            Synced        Healthy
+external-secrets               Synced        Healthy
+flights-api-eks                Synced        Healthy
+flights-web-eks                Synced        Healthy
+flights-worker-eks             Synced        Healthy
+istio-base                     Synced        Healthy
+istio-gateway                  Synced        Healthy
+istio-ingress-alb              Synced        Healthy
+istiod                         Synced        Healthy
+mesh-flights                   Synced        Healthy
+metrics-server                 Synced        Healthy
+platform-root-eks              Synced        Healthy
+projects                       Synced        Healthy
+storageclass-gp3               Synced        Healthy

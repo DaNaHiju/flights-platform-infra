@@ -1,0 +1,27 @@
+# 2026-11-17 21:23:21 UTC  (23:23:21 IST)
+# $ curl -s -i -m 15 http://flights-dev-805688989.eu-north-1.elb.amazonaws.com/
+
+HTTP/1.1 200 OK
+Date: Tue, 17 Nov 2026 21:23:22 GMT
+Content-Type: text/html
+Content-Length: 392
+Connection: keep-alive
+server: istio-envoy
+last-modified: Tue, 17 Nov 2026 19:56:46 GMT
+etag: "6afcb17e-188"
+accept-ranges: bytes
+x-envoy-upstream-service-time: 1
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flights</title>
+    <script type="module" crossorigin src="/assets/index-Dg1tRnLW.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CoTsJszm.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

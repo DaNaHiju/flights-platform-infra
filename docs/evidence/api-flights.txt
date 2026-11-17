@@ -1,0 +1,20 @@
+# CAPTURED 2026-11-17 20:55:02 UTC (22:55:02 IST) -- ORIGINAL output of the verification run.
+# NOT re-run for this evidence: since ~21:02 UTC the same endpoint answers 502 (see README.md).
+#
+# $ curl -s -m 90 "http://flights-dev-805688989.eu-north-1.elb.amazonaws.com/api/flights?origin=TLV&destination=LHR&date=2027-01-20" \
+#     -o flights.json -w "HTTP %{http_code} in %{time_total}s\n"
+#
+# Status line printed by curl at the time:
+HTTP 200 in 0.964034s
+#
+# Full response body, byte for byte as saved at the time: api-flights-response.json
+# (181385 bytes; keys: results, cached, cached_at; 123 results; "cached": false = a live provider search).
+#
+# What the verification printed from that body (python, first 4 results, first 6 fields each).
+# The printed view below is regenerated from the saved original body with the same snippet,
+# because the terminal output was not kept as a file; the data is the original.
+dict 3
+{'offer_id': '["CAISA1VTRBoECMmEASLIAQqxAQpZCgNUTFYSGTIwMjctMDEtMjBUMDU6MjA6MDArMDI6MDAaA0FUSCIZMjAyNy0wMS0yMFQwNzozMDowMCswMjowMCoCQTMyAzkyOToCQTNCAzkyOUgBUgMzMlEKVAoDQVRIEhkyMDI3LTAxLTIwVDEzOjI1OjAwKzAyOjAwGgNMSFIiFDIwMjctMDEtMjBUMTU6MzA6MDBaKgJBMzIDNjAyOgJBM0IDNjAySAFSAzMyURIECAMQARgBKAAyCAoGQWVnZWFuKgZDaHJvbWU\\u003d"]', 'price': 170.0, 'currency': 'USD', 'duration_minutes': 730, 'total_duration_minutes': 730, 'stops': 1}
+{'offer_id': '["CAISA1VTRBoECPCYASJ1ClYKVAoDVExWEhkyMDI3LTAxLTIwVDA2OjEwOjAwKzAyOjAwGgNMSFIiFDIwMjctMDEtMjBUMDk6NTU6MDBaKgJCQTIDNDA1OgJCQUIDNDA1SAFSAzMyURIECAMQARgBKAAyEQoPQnJpdGlzaCBBaXJ3YXlzKgZDaHJvbWU\\u003d"]', 'price': 196.0, 'currency': 'USD', 'duration_minutes': 345, 'total_duration_minutes': 345, 'stops': 0}
+{'offer_id': '["CAISA1VTRBoECPjYASJ8ClYKVAoDVExWEhkyMDI3LTAxLTIwVDE3OjAwOjAwKzAyOjAwGgNMSFIiFDIwMjctMDEtMjBUMjA6MjU6MDBaKgJMWTIDMzE3OgJMWUIDMzE3SAFSAzc3NxIECAMQARgBKAAyGAoFRWwgQWwKD1ZpcmdpbiBBdGxhbnRpYyoGQ2hyb21l"]', 'price': 278.0, 'currency': 'USD', 'duration_minutes': 325, 'total_duration_minutes': 325, 'stops': 0}
+{'offer_id': '["CAISA1VTRBoECLjlASJ8ClYKVAoDVExWEhkyMDI3LTAxLTIwVDA5OjEwOjAwKzAyOjAwGgNMSFIiFDIwMjctMDEtMjBUMTI6MzU6MDBaKgJMWTIDMzE1OgJMWUIDMzE1SAFSAzc4ORIECAMQARgBKAAyGAoFRWwgQWwKD1ZpcmdpbiBBdGxhbnRpYyoGQ2hyb21l"]', 'price': 294.0, 'currency': 'USD', 'duration_minutes': 325, 'total_duration_minutes': 325, 'stops': 0}

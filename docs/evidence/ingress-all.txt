@@ -1,0 +1,5 @@
+# 2026-11-17 21:23:20 UTC  (23:23:20 IST)
+# $ kubectl get ingress -A
+
+NAMESPACE      NAME                   CLASS   HOSTS   ADDRESS                                              PORTS   AGE
+istio-system   istio-ingressgateway   alb     *       flights-dev-805688989.eu-north-1.elb.amazonaws.com   80      43m
