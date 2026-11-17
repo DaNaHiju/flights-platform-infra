@@ -6,13 +6,16 @@
 # - No console access (no login profile; the SCP also denies iam:*LoginProfile*).
 # - The access key is NOT created here, so the secret never reaches the Terraform
 #   state. It is created out of band with the AWS CLI and loaded straight into
-#   GitHub Secrets (see README.md). force_destroy removes that key on destroy.
+#   GitHub Secrets (see README.md). Because Terraform does not know the key, it
+#   must be deleted by hand BEFORE `terraform destroy` (DESTROY.md, step 3).
+# - No force_destroy: it makes the provider call iam:DeleteLoginProfile, which the
+#   Free plan SCP denies (iam:*LoginProfile*), so the destroy would fail on this user.
 # - Least privilege: GetAuthorizationToken (account-wide by design) plus push
 #   actions on the three ECR repositories only.
 
 resource "aws_iam_user" "github_ecr_push" {
   name          = "github-ecr-push"
-  force_destroy = true
+  force_destroy = false
 
   tags = local.common_tags
 }
