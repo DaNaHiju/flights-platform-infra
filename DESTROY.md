@@ -113,6 +113,6 @@ gh variable set ECR_PUSH --body false -R DaNaHiju/flights-platform   # or: gh va
 rm -f destroy.tfplan
 ```
 
-`ECR_PUSH` must not stay `true`: with the ECR repositories and the key gone, the CI job would fail on every push to `main`. To bring everything back see "Relanzar EKS" in [README.md](README.md#relanzar-eks).
+`ECR_PUSH` must not stay `true`: with the ECR repositories and the key gone, the CI job would fail on every push to `main`. To bring everything back see "Relaunching EKS" in [README.md](README.md#relaunching-eks).
 
 The $30 budget stays (created by hand). The S3 state bucket and lock table from `bootstrap/` stay too; they cost cents. To remove them see [bootstrap/README.md](bootstrap/README.md#teardown).

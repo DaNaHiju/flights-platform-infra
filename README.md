@@ -118,7 +118,7 @@ Rotate by creating a second key, updating the secrets, then `aws iam delete-acce
 
 [`docs/evidence/`](docs/evidence/README.md) holds what the running EKS environment looked like before teardown: nodes, pods, ArgoCD Applications, PVCs, Ingress/ALB, `curl` through the ALB, ArgoCD screenshots, and a documented finding (the flight provider answering `502` from the datacenter IP).
 
-## Relanzar EKS
+## Relaunching EKS
 
 Checklist to bring the environment back after a teardown ([DESTROY.md](DESTROY.md)). Run the steps in order. `bootstrap/` (state bucket and lock table) survives the teardown: do **not** re-apply it, only `terraform init` in the root.
 
@@ -162,23 +162,40 @@ aws iam create-access-key --user-name github-ecr-push --output json \
       printf %s "$secret" | gh secret set AWS_SECRET_ACCESS_KEY -R DaNaHiju/flights-platform; }
 ```
 
-### 5. Enable ECR push and push the images
+### 5. Enable ECR push and fill ECR with the tags EKS references
 
-The CI job pushes to ECR only when the repository variable `ECR_PUSH` is `true`. The ECR repositories are empty after a relaunch, so re-run the CI on `main` after setting it, or the pods stay in `ImagePullBackOff`.
+Set `ECR_PUSH` so future CI runs on `main` also push to ECR (it needs the step 4 secrets):
 
 ```bash
 gh variable set ECR_PUSH --body true -R DaNaHiju/flights-platform
 ```
 
-The workflow has no `workflow_dispatch` (it runs on `push` to `main` and on PRs), so re-run the last run on `main`, which now sees `ECR_PUSH=true` and the new secrets:
+The ECR repositories are empty after a relaunch, and the pods stay in `ImagePullBackOff` until the exact tags the EKS values point at exist there. **Do not re-run CI or push an empty commit to fill them:**
+
+- An empty commit changes no files, so every `dorny/paths-filter` filter is false and the `build` job is skipped.
+- Re-running a run repeats that commit's filter result, so it builds only the services that commit touched. The last `main` commit happens to touch `.github/workflows/ci.yml` (which is in all three filters), but that is luck, not a rule.
+- It tags `sha-<7 of that commit>`, while the api chart pins its own tag in `values-eks.yaml`. Re-running an older run would make `update-manifests` bump the staging tags back to that older sha.
+
+Instead, copy the images that already exist in GHCR, with the exact tags the EKS values use (api: `charts/flights-api/values-eks.yaml`; worker and web: `values.yaml` of their chart, bumped by CI). `imagetools create` copies the manifest registry to registry, so the digest is preserved. Run it from this repo, with the sibling repo `flights-platform-manifests` checked out next to it:
 
 ```bash
-RUN_ID=$(gh run list -R DaNaHiju/flights-platform --branch main --event push --limit 1 --json databaseId --jq '.[0].databaseId')
-gh run rerun "$RUN_ID" -R DaNaHiju/flights-platform
-gh run watch "$RUN_ID" -R DaNaHiju/flights-platform
+M=../flights-platform-manifests
+REGISTRY=$(terraform output -raw ecr_registry)
+aws ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY"
+# only if the GHCR packages are private:  echo "$GHCR_PAT" | docker login ghcr.io -u DaNaHiju --password-stdin   # PAT with read:packages
+
+for svc in api worker web; do
+  case "$svc" in
+    api) file=$M/charts/flights-api/values-eks.yaml ;;
+    *)   file=$M/charts/flights-$svc/values.yaml ;;
+  esac
+  tag=$(yq '.image.tag' "$file")
+  docker buildx imagetools create \
+    --tag "$REGISTRY/flights-$svc:$tag" "ghcr.io/danahiju/flights-$svc:$tag"
+done
 ```
 
-If that run is too old to be re-run, push an empty commit to `main` (`git commit --allow-empty -m "ci: push to ECR"`).
+Check the three images exist in ECR with the tag EKS expects, e.g. `terraform output ecr_repository_urls` plus a look in the ECR console, before moving on. If a tag is missing from GHCR, it has to be built: that needs a workflow change (see the open question in the PR).
 
 ### 6. Bootstrap ArgoCD (manual, in the manifests repo)
 
@@ -189,7 +206,7 @@ The AppProject `platform-infra` is bootstrap and ArgoCD does **not** manage it: 
 ### 7. Minimal verification
 
 ```bash
-kubectl get nodes                   # all Ready (2 system + 1 app)
+kubectl get nodes                   # all Ready (2 system + 1 app; the app group may grow to 2)
 kubectl get applications -n argocd  # all Synced / Healthy
 kubectl get ingress -n istio-system istio-ingressgateway   # ADDRESS = the ALB hostname
 ```
@@ -200,4 +217,4 @@ Everything bills by the hour (EKS, NAT gateway, nodes, ALB, EBS). When the evide
 
 ## Teardown
 
-See [DESTROY.md](DESTROY.md). Read it before the first apply. To bring the environment back, see [Relanzar EKS](#relanzar-eks).
+See [DESTROY.md](DESTROY.md). Read it before the first apply. To bring the environment back, see [Relaunching EKS](#relaunching-eks).
