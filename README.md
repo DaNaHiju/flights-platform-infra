@@ -118,6 +118,86 @@ Rotate by creating a second key, updating the secrets, then `aws iam delete-acce
 
 [`docs/evidence/`](docs/evidence/README.md) holds what the running EKS environment looked like before teardown: nodes, pods, ArgoCD Applications, PVCs, Ingress/ALB, `curl` through the ALB, ArgoCD screenshots, and a documented finding (the flight provider answering `502` from the datacenter IP).
 
+## Relanzar EKS
+
+Checklist to bring the environment back after a teardown ([DESTROY.md](DESTROY.md)). Run the steps in order. `bootstrap/` (state bucket and lock table) survives the teardown: do **not** re-apply it, only `terraform init` in the root.
+
+### 1. Prerequisites
+
+```bash
+export AWS_PROFILE=aws-lab AWS_REGION=eu-north-1
+cd ~/workspace/github.com/danahiju/flights-repos/flights-platform-infra
+terraform init
+gh auth status          # needs access to DaNaHiju/flights-platform
+```
+
+### 2. Update your public IP in `terraform.tfvars`
+
+The variable is `public_access_cidrs` (git-ignored file; template in `terraform.tfvars.example`). If it is stale, `kubectl` times out.
+
+```bash
+curl -s https://checkip.amazonaws.com
+# edit terraform.tfvars:  public_access_cidrs = ["<your-ip>/32"]
+```
+
+### 3. Apply and configure kubectl
+
+```bash
+terraform plan -out=eks.tfplan
+terraform apply eks.tfplan
+$(terraform output -raw kubeconfig_command)
+```
+
+This is the only stack to apply. It creates the VPC, EKS, **empty** ECR repositories and the IAM user `github-ecr-push` (without an access key).
+
+### 4. Create a new access key for `github-ecr-push` and load it into GitHub Secrets
+
+The teardown deleted the key and the secrets. The user exists only after step 3. The key goes straight into the secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` of `DaNaHiju/flights-platform`, never printed or written to a file (command in [GitHub Actions → ECR](#github-actions--ecr-forced-exception-static-access-key)):
+
+```bash
+aws iam create-access-key --user-name github-ecr-push --output json \
+  | jq -r '.AccessKey | "\(.AccessKeyId)\t\(.SecretAccessKey)"' \
+  | { IFS=$'\t' read -r id secret
+      printf %s "$id"     | gh secret set AWS_ACCESS_KEY_ID     -R DaNaHiju/flights-platform
+      printf %s "$secret" | gh secret set AWS_SECRET_ACCESS_KEY -R DaNaHiju/flights-platform; }
+```
+
+### 5. Enable ECR push and push the images
+
+The CI job pushes to ECR only when the repository variable `ECR_PUSH` is `true`. The ECR repositories are empty after a relaunch, so re-run the CI on `main` after setting it, or the pods stay in `ImagePullBackOff`.
+
+```bash
+gh variable set ECR_PUSH --body true -R DaNaHiju/flights-platform
+```
+
+The workflow has no `workflow_dispatch` (it runs on `push` to `main` and on PRs), so re-run the last run on `main`, which now sees `ECR_PUSH=true` and the new secrets:
+
+```bash
+RUN_ID=$(gh run list -R DaNaHiju/flights-platform --branch main --event push --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run rerun "$RUN_ID" -R DaNaHiju/flights-platform
+gh run watch "$RUN_ID" -R DaNaHiju/flights-platform
+```
+
+If that run is too old to be re-run, push an empty commit to `main` (`git commit --allow-empty -m "ci: push to ECR"`).
+
+### 6. Bootstrap ArgoCD (manual, in the manifests repo)
+
+ArgoCD cannot install itself, so three manual commands are needed: `helm install argocd`, `kubectl apply` of the AppProject `platform-infra`, and `kubectl apply` of the root Application `platform-root-eks`. The commands live in a single place, see [Bootstrap in `flights-platform-manifests`](https://github.com/DaNaHiju/flights-platform-manifests/blob/main/argocd/eks/README.md#bootstrap-one-time-per-cluster). Follow them in that order, with kubectl already pointing at the new cluster (step 3).
+
+The AppProject `platform-infra` is bootstrap and ArgoCD does **not** manage it: any later change to `argocd/eks/projects/platform-infra.yaml` in the manifests repo is applied by hand with `kubectl apply -f` (merging it does not update the live object).
+
+### 7. Minimal verification
+
+```bash
+kubectl get nodes                   # all Ready (2 system + 1 app)
+kubectl get applications -n argocd  # all Synced / Healthy
+kubectl get ingress -n istio-system istio-ingressgateway   # ADDRESS = the ALB hostname
+```
+
+### 8. Reminder: destroy when done
+
+Everything bills by the hour (EKS, NAT gateway, nodes, ALB, EBS). When the evidence is captured, follow [DESTROY.md](DESTROY.md) **in order**: Kubernetes-side resources first, then `terraform destroy`. Do not run `terraform destroy` straight away: the ALB and the EBS volumes are not in the Terraform state and would be orphaned.
+
 ## Teardown
 
-See [DESTROY.md](DESTROY.md). Read it before the first apply.
+See [DESTROY.md](DESTROY.md). Read it before the first apply. To bring the environment back, see [Relanzar EKS](#relanzar-eks).
