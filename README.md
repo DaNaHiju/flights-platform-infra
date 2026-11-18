@@ -118,6 +118,103 @@ Rotate by creating a second key, updating the secrets, then `aws iam delete-acce
 
 [`docs/evidence/`](docs/evidence/README.md) holds what the running EKS environment looked like before teardown: nodes, pods, ArgoCD Applications, PVCs, Ingress/ALB, `curl` through the ALB, ArgoCD screenshots, and a documented finding (the flight provider answering `502` from the datacenter IP).
 
+## Relaunching EKS
+
+Checklist to bring the environment back after a teardown ([DESTROY.md](DESTROY.md)). Run the steps in order. `bootstrap/` (state bucket and lock table) survives the teardown: do **not** re-apply it, only `terraform init` in the root.
+
+### 1. Prerequisites
+
+```bash
+export AWS_PROFILE=aws-lab AWS_REGION=eu-north-1
+cd ~/workspace/github.com/danahiju/flights-repos/flights-platform-infra
+terraform init
+gh auth status          # needs access to DaNaHiju/flights-platform
+```
+
+### 2. Update your public IP in `terraform.tfvars`
+
+The variable is `public_access_cidrs` (git-ignored file; template in `terraform.tfvars.example`). If it is stale, `kubectl` times out.
+
+```bash
+curl -s https://checkip.amazonaws.com
+# edit terraform.tfvars:  public_access_cidrs = ["<your-ip>/32"]
+```
+
+### 3. Apply and configure kubectl
+
+```bash
+terraform plan -out=eks.tfplan
+terraform apply eks.tfplan
+$(terraform output -raw kubeconfig_command)
+```
+
+This is the only stack to apply. It creates the VPC, EKS, **empty** ECR repositories and the IAM user `github-ecr-push` (without an access key).
+
+### 4. Create a new access key for `github-ecr-push` and load it into GitHub Secrets
+
+The teardown deleted the key and the secrets. The user exists only after step 3. The key goes straight into the secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` of `DaNaHiju/flights-platform`, never printed or written to a file (command in [GitHub Actions → ECR](#github-actions--ecr-forced-exception-static-access-key)):
+
+```bash
+aws iam create-access-key --user-name github-ecr-push --output json \
+  | jq -r '.AccessKey | "\(.AccessKeyId)\t\(.SecretAccessKey)"' \
+  | { IFS=$'\t' read -r id secret
+      printf %s "$id"     | gh secret set AWS_ACCESS_KEY_ID     -R DaNaHiju/flights-platform
+      printf %s "$secret" | gh secret set AWS_SECRET_ACCESS_KEY -R DaNaHiju/flights-platform; }
+```
+
+### 5. Enable ECR push and fill ECR with the tags EKS references
+
+Set `ECR_PUSH` so future CI runs on `main` also push to ECR (it needs the step 4 secrets):
+
+```bash
+gh variable set ECR_PUSH --body true -R DaNaHiju/flights-platform
+```
+
+The ECR repositories are empty after a relaunch, and the pods stay in `ImagePullBackOff` until the exact tags the EKS values point at exist there. **Do not re-run CI or push an empty commit to fill them:**
+
+- An empty commit changes no files, so every `dorny/paths-filter` filter is false and the `build` job is skipped.
+- Re-running a run repeats that commit's filter result, so it builds only the services that commit touched. The last `main` commit happens to touch `.github/workflows/ci.yml` (which is in all three filters), but that is luck, not a rule.
+- It tags `sha-<7 of that commit>`, while the api chart pins its own tag in `values-eks.yaml`. Re-running an older run would make `update-manifests` bump the staging tags back to that older sha.
+
+Instead, copy the images that already exist in GHCR, with the exact tags the EKS values use (api: `charts/flights-api/values-eks.yaml`; worker and web: `values.yaml` of their chart, bumped by CI). `imagetools create` copies the manifest registry to registry, so the digest is preserved. Run it from this repo, with the sibling repo `flights-platform-manifests` checked out next to it:
+
+```bash
+M=../flights-platform-manifests
+REGISTRY=$(terraform output -raw ecr_registry)
+aws ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY"
+# only if the GHCR packages are private:  echo "$GHCR_PAT" | docker login ghcr.io -u DaNaHiju --password-stdin   # PAT with read:packages
+
+for svc in api worker web; do
+  case "$svc" in
+    api) file=$M/charts/flights-api/values-eks.yaml ;;
+    *)   file=$M/charts/flights-$svc/values.yaml ;;
+  esac
+  tag=$(yq '.image.tag' "$file")
+  docker buildx imagetools create \
+    --tag "$REGISTRY/flights-$svc:$tag" "ghcr.io/danahiju/flights-$svc:$tag"
+done
+```
+
+Check the three images exist in ECR with the tag EKS expects, e.g. `terraform output ecr_repository_urls` plus a look in the ECR console, before moving on. If a tag is missing from GHCR, it has to be built: that needs a workflow change (see the open question in the PR).
+
+### 6. Bootstrap ArgoCD (manual, in the manifests repo)
+
+ArgoCD cannot install itself, so three manual commands are needed: `helm install argocd`, `kubectl apply` of the AppProject `platform-infra`, and `kubectl apply` of the root Application `platform-root-eks`. The commands live in a single place, see [Bootstrap in `flights-platform-manifests`](https://github.com/DaNaHiju/flights-platform-manifests/blob/main/argocd/eks/README.md#bootstrap-one-time-per-cluster). Follow them in that order, with kubectl already pointing at the new cluster (step 3).
+
+The AppProject `platform-infra` is bootstrap and ArgoCD does **not** manage it: any later change to `argocd/eks/projects/platform-infra.yaml` in the manifests repo is applied by hand with `kubectl apply -f` (merging it does not update the live object).
+
+### 7. Minimal verification
+
+```bash
+kubectl get nodes                   # all Ready (2 system + 1 app; the app group may grow to 2)
+kubectl get applications -n argocd  # all Synced / Healthy
+kubectl get ingress -n istio-system istio-ingressgateway   # ADDRESS = the ALB hostname
+```
+
+### 8. Reminder: destroy when done
+
+Everything bills by the hour (EKS, NAT gateway, nodes, ALB, EBS). When the evidence is captured, follow [DESTROY.md](DESTROY.md) **in order**: Kubernetes-side resources first, then `terraform destroy`. Do not run `terraform destroy` straight away: the ALB and the EBS volumes are not in the Terraform state and would be orphaned.
+
 ## Teardown
 
-See [DESTROY.md](DESTROY.md). Read it before the first apply.
+See [DESTROY.md](DESTROY.md). Read it before the first apply. To bring the environment back, see [Relaunching EKS](#relaunching-eks).
