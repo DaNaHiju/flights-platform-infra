@@ -109,7 +109,10 @@ If a VPC or subnet refuses to delete with `DependencyViolation`, something was o
 ```bash
 gh secret delete AWS_ACCESS_KEY_ID     -R DaNaHiju/flights-platform
 gh secret delete AWS_SECRET_ACCESS_KEY -R DaNaHiju/flights-platform
+gh variable set ECR_PUSH --body false -R DaNaHiju/flights-platform   # or: gh variable delete ECR_PUSH -R DaNaHiju/flights-platform
 rm -f destroy.tfplan
 ```
+
+`ECR_PUSH` must not stay `true`: with the ECR repositories and the key gone, the CI job would fail on every push to `main`. To bring everything back see "Relaunching EKS" in [README.md](README.md#relaunching-eks).
 
 The $30 budget stays (created by hand). The S3 state bucket and lock table from `bootstrap/` stay too; they cost cents. To remove them see [bootstrap/README.md](bootstrap/README.md#teardown).
